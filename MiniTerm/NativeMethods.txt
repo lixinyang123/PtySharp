@@ -1,0 +1,17 @@
+// Kernel32.*
+
+CreatePseudoConsole
+// ResizePseudoConsole
+// ClosePseudoConsole
+CreatePipe
+
+GetStdHandle
+SetConsoleMode
+GetConsoleMode
+SetConsoleCtrlHandler
+
+InitializeProcThreadAttributeList
+UpdateProcThreadAttribute
+CreateProcess
+DeleteProcThreadAttributeList
+CloseHandle

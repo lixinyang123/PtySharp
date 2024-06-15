@@ -1,10 +1,8 @@
 using Microsoft.Win32.SafeHandles;
-using System;
-using System.IO;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using static MiniTerm.Native.ConsoleApi;
+using Windows.Win32;
+using Windows.Win32.Foundation;
+using Windows.Win32.System.Console;
 
 namespace MiniTerm
 {
@@ -27,14 +25,15 @@ namespace MiniTerm
         /// </summary>
         private static void EnableVirtualTerminalSequenceProcessing()
         {
-            var hStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
-            if (!GetConsoleMode(hStdOut, out uint outConsoleMode))
+            HANDLE hStdOut = PInvoke.GetStdHandle(STD_HANDLE.STD_OUTPUT_HANDLE);
+            SafeFileHandle safeFileHandle = new(hStdOut, true);
+
+            if (!PInvoke.GetConsoleMode(safeFileHandle, out CONSOLE_MODE outConsoleMode))
             {
                 throw new InvalidOperationException("Could not get console mode");
             }
 
-            outConsoleMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN;
-            if (!SetConsoleMode(hStdOut, outConsoleMode))
+            if (!PInvoke.SetConsoleMode(safeFileHandle, outConsoleMode))
             {
                 throw new InvalidOperationException("Could not enable virtual terminal processing");
             }
@@ -50,7 +49,7 @@ namespace MiniTerm
             using (var inputPipe = new PseudoConsolePipe())
             using (var outputPipe = new PseudoConsolePipe())
             using (var pseudoConsole = PseudoConsole.Create(inputPipe.ReadSide, outputPipe.WriteSide, (short)Console.WindowWidth, (short)Console.WindowHeight))
-            using (var process = ProcessFactory.Start(command, PseudoConsole.PseudoConsoleThreadAttribute, pseudoConsole.Handle))
+            using (var process = ProcessFactory.Start(command, PseudoConsole.PseudoConsoleThreadAttribute, pseudoConsole.Handle.DangerousGetHandle()))
             {
                 // copy all pseudoconsole output to stdout
                 Task.Run(() => CopyPipeToOutput(outputPipe.ReadSide));
@@ -124,9 +123,9 @@ namespace MiniTerm
         /// </summary>
         private static void OnClose(Action handler)
         {
-            SetConsoleCtrlHandler(eventType =>
+            PInvoke.SetConsoleCtrlHandler(eventType =>
             {
-                if(eventType == CtrlTypes.CTRL_CLOSE_EVENT)
+                if(eventType == (uint)CtrlTypes.CTRL_CLOSE_EVENT)
                 {
                     handler();
                 }

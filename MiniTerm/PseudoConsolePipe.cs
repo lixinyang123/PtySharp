@@ -1,6 +1,6 @@
 using Microsoft.Win32.SafeHandles;
-using System;
-using static MiniTerm.Native.PseudoConsoleApi;
+using Windows.Win32;
+using Windows.Win32.Security;
 
 namespace MiniTerm
 {
@@ -18,7 +18,7 @@ namespace MiniTerm
 
         public PseudoConsolePipe()
         {
-            if (!CreatePipe(out ReadSide, out WriteSide, IntPtr.Zero, 0))
+            if (!PInvoke.CreatePipe(out ReadSide, out WriteSide, new SECURITY_ATTRIBUTES(), 0))
             {
                 throw new InvalidOperationException("failed to create pipe");
             }
