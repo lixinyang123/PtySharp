@@ -3,6 +3,7 @@ using static MiniTerm.Native.ConsoleApi;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.System.Console;
+using MiniTerm.Processes;
 
 namespace MiniTerm
 {
@@ -49,7 +50,10 @@ namespace MiniTerm
             using var inputPipe = new PseudoConsolePipe();
             using var outputPipe = new PseudoConsolePipe();
             using var pseudoConsole = PseudoConsole.Create(inputPipe.ReadSide, outputPipe.WriteSide, (short)Console.WindowWidth, (short)Console.WindowHeight);
+
             using var process = ProcessFactory.Start(command, PseudoConsole.PseudoConsoleThreadAttribute, pseudoConsole.Handle.DangerousGetHandle());
+            //using var process = System.Diagnostics.Process.Start(command) ?? throw new Exception();
+
             // copy all pseudoconsole output to stdout
             Task.Run(() => CopyPipeToOutput(outputPipe.ReadSide));
             // prompt for stdin input and send the result to the pseudoconsole
@@ -58,6 +62,7 @@ namespace MiniTerm
             OnClose(() => DisposeResources(process, pseudoConsole, outputPipe, inputPipe));
 
             WaitForExit(process).WaitOne(Timeout.Infinite);
+            //process.WaitForExit();
         }
 
         /// <summary>
@@ -69,14 +74,13 @@ namespace MiniTerm
             using var writer = new StreamWriter(new FileStream(inputWriteSide, FileAccess.Write));
             ForwardCtrlC(writer);
             writer.AutoFlush = true;
-            // writer.WriteLine(@"cd \");
+            //writer.WriteLine(@"cd /");
 
             while (true)
             {
                 // send input character-by-character to the pipe
                 char key = Console.ReadKey(intercept: true).KeyChar;
                 writer.Write(key);
-
             }
         }
 

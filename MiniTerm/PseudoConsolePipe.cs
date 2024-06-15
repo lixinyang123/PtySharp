@@ -18,13 +18,18 @@ namespace MiniTerm
 
         public PseudoConsolePipe()
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                throw new PlatformNotSupportedException("OperatingSystem is not support");
+            }
+
+            #pragma warning disable CA1416 // 验证平台兼容性
             if (!PInvoke.CreatePipe(out ReadSide, out WriteSide, new SECURITY_ATTRIBUTES(), 0))
             {
                 throw new InvalidOperationException("failed to create pipe");
             }
+            #pragma warning restore CA1416 // 验证平台兼容性
         }
-
-        #region IDisposable
 
         void Dispose(bool disposing)
         {
@@ -40,7 +45,5 @@ namespace MiniTerm
             Dispose(true);
             GC.SuppressFinalize(this);
         }
-
-        #endregion
     }
 }

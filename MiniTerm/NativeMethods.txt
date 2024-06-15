@@ -10,8 +10,8 @@ SetConsoleMode
 GetConsoleMode
 SetConsoleCtrlHandler
 
-InitializeProcThreadAttributeList
-UpdateProcThreadAttribute
-CreateProcess
-DeleteProcThreadAttributeList
-CloseHandle
+// InitializeProcThreadAttributeList
+// UpdateProcThreadAttribute
+// CreateProcess
+// DeleteProcThreadAttributeList
+// CloseHandle

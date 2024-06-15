@@ -2,7 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using static MiniTerm.Native.ProcessApi;
 
-namespace MiniTerm
+namespace MiniTerm.Processes
 {
     /// <summary>
     /// Support for starting and configuring processes.
