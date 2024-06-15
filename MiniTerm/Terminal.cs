@@ -46,20 +46,18 @@ namespace MiniTerm
         /// <param name="command">the command to run, e.g. cmd.exe</param>
         public void Run(string command)
         {
-            using (var inputPipe = new PseudoConsolePipe())
-            using (var outputPipe = new PseudoConsolePipe())
-            using (var pseudoConsole = PseudoConsole.Create(inputPipe.ReadSide, outputPipe.WriteSide, (short)Console.WindowWidth, (short)Console.WindowHeight))
-            using (var process = ProcessFactory.Start(command, PseudoConsole.PseudoConsoleThreadAttribute, pseudoConsole.Handle.DangerousGetHandle()))
-            {
-                // copy all pseudoconsole output to stdout
-                Task.Run(() => CopyPipeToOutput(outputPipe.ReadSide));
-                // prompt for stdin input and send the result to the pseudoconsole
-                Task.Run(() => CopyInputToPipe(inputPipe.WriteSide));
-                // free resources in case the console is ungracefully closed (e.g. by the 'x' in the window titlebar)
-                OnClose(() => DisposeResources(process, pseudoConsole, outputPipe, inputPipe));
+            using var inputPipe = new PseudoConsolePipe();
+            using var outputPipe = new PseudoConsolePipe();
+            using var pseudoConsole = PseudoConsole.Create(inputPipe.ReadSide, outputPipe.WriteSide, (short)Console.WindowWidth, (short)Console.WindowHeight);
+            using var process = ProcessFactory.Start(command, PseudoConsole.PseudoConsoleThreadAttribute, pseudoConsole.Handle.DangerousGetHandle());
+            // copy all pseudoconsole output to stdout
+            Task.Run(() => CopyPipeToOutput(outputPipe.ReadSide));
+            // prompt for stdin input and send the result to the pseudoconsole
+            Task.Run(() => CopyInputToPipe(inputPipe.WriteSide));
+            // free resources in case the console is ungracefully closed (e.g. by the 'x' in the window titlebar)
+            OnClose(() => DisposeResources(process, pseudoConsole, outputPipe, inputPipe));
 
-                WaitForExit(process).WaitOne(Timeout.Infinite);
-            }
+            WaitForExit(process).WaitOne(Timeout.Infinite);
         }
 
         /// <summary>
@@ -68,18 +66,17 @@ namespace MiniTerm
         /// <param name="inputWriteSide">the "write" side of the pseudo console input pipe</param>
         private static void CopyInputToPipe(SafeFileHandle inputWriteSide)
         {
-            using (var writer = new StreamWriter(new FileStream(inputWriteSide, FileAccess.Write)))
-            {
-                ForwardCtrlC(writer);
-                writer.AutoFlush = true;
-                // writer.WriteLine(@"cd \");
+            using var writer = new StreamWriter(new FileStream(inputWriteSide, FileAccess.Write));
+            ForwardCtrlC(writer);
+            writer.AutoFlush = true;
+            // writer.WriteLine(@"cd \");
 
-                while (true)
-                {
-                    // send input character-by-character to the pipe
-                    char key = Console.ReadKey(intercept: true).KeyChar;
-                    writer.Write(key);
-                }
+            while (true)
+            {
+                // send input character-by-character to the pipe
+                char key = Console.ReadKey(intercept: true).KeyChar;
+                writer.Write(key);
+
             }
         }
 
@@ -101,11 +98,9 @@ namespace MiniTerm
         /// <param name="outputReadSide">the "read" side of the pseudo console output pipe</param>
         private static void CopyPipeToOutput(SafeFileHandle outputReadSide)
         {
-            using (var terminalOutput = Console.OpenStandardOutput())
-            using (var pseudoConsoleOutput = new FileStream(outputReadSide, FileAccess.Read))
-            {
-                pseudoConsoleOutput.CopyTo(terminalOutput);
-            }
+            using var terminalOutput = Console.OpenStandardOutput();
+            using var pseudoConsoleOutput = new FileStream(outputReadSide, FileAccess.Read);
+            pseudoConsoleOutput.CopyTo(terminalOutput);
         }
 
         /// <summary>
