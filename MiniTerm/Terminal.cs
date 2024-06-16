@@ -1,8 +1,8 @@
 using Microsoft.Win32.SafeHandles;
+using System.Text;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.System.Console;
-using System.Text;
 
 namespace MiniTerm
 {
@@ -54,7 +54,7 @@ namespace MiniTerm
         /// https://docs.microsoft.com/en-us/windows/console/creating-a-pseudoconsole-session#creating-the-pseudoconsole
         /// </summary>
         /// <param name="command">the command to run, e.g. cmd.exe</param>
-        public void Run(string command)
+        public static void Run(string command)
         {
             using var inputPipe = new PseudoConsolePipe();
             using var outputPipe = new PseudoConsolePipe();
@@ -123,7 +123,7 @@ namespace MiniTerm
         {
             PInvoke.SetConsoleCtrlHandler(eventType =>
             {
-                if(eventType == (uint)CtrlTypes.CTRL_CLOSE_EVENT)
+                if (eventType == (uint)CtrlTypes.CTRL_CLOSE_EVENT)
                 {
                     handler();
                 }
@@ -131,7 +131,7 @@ namespace MiniTerm
             }, true);
         }
 
-        private void DisposeResources(params IDisposable[] disposables)
+        private static void DisposeResources(params IDisposable[] disposables)
         {
             foreach (var disposable in disposables)
             {
