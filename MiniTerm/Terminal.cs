@@ -1,9 +1,8 @@
 using Microsoft.Win32.SafeHandles;
-using static MiniTerm.Native.ConsoleApi;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.System.Console;
-using MiniTerm.Processes;
+using System.Text;
 
 namespace MiniTerm
 {
@@ -14,7 +13,17 @@ namespace MiniTerm
     internal sealed class Terminal
     {
         private const string ExitCommand = "exit\r";
+
         private const string CtrlC_Command = "\x3";
+
+        internal enum CtrlTypes : uint
+        {
+            CTRL_C_EVENT = 0,
+            CTRL_BREAK_EVENT,
+            CTRL_CLOSE_EVENT,
+            CTRL_LOGOFF_EVENT = 5,
+            CTRL_SHUTDOWN_EVENT
+        }
 
         public Terminal()
         {
@@ -50,9 +59,7 @@ namespace MiniTerm
             using var inputPipe = new PseudoConsolePipe();
             using var outputPipe = new PseudoConsolePipe();
             using var pseudoConsole = PseudoConsole.Create(inputPipe.ReadSide, outputPipe.WriteSide, (short)Console.WindowWidth, (short)Console.WindowHeight);
-
-            using var process = ProcessFactory.Start(command, PseudoConsole.PseudoConsoleThreadAttribute, pseudoConsole.Handle.DangerousGetHandle());
-            //using var process = System.Diagnostics.Process.Start(command) ?? throw new Exception();
+            using var process = System.Diagnostics.Process.Start(command) ?? throw new Exception();
 
             // copy all pseudoconsole output to stdout
             Task.Run(() => CopyPipeToOutput(outputPipe.ReadSide));
@@ -61,8 +68,7 @@ namespace MiniTerm
             // free resources in case the console is ungracefully closed (e.g. by the 'x' in the window titlebar)
             OnClose(() => DisposeResources(process, pseudoConsole, outputPipe, inputPipe));
 
-            WaitForExit(process).WaitOne(Timeout.Infinite);
-            //process.WaitForExit();
+            process.WaitForExit();
         }
 
         /// <summary>
@@ -71,28 +77,30 @@ namespace MiniTerm
         /// <param name="inputWriteSide">the "write" side of the pseudo console input pipe</param>
         private static void CopyInputToPipe(SafeFileHandle inputWriteSide)
         {
-            using var writer = new StreamWriter(new FileStream(inputWriteSide, FileAccess.Write));
-            ForwardCtrlC(writer);
-            writer.AutoFlush = true;
-            //writer.WriteLine(@"cd /");
+            using var stream = new FileStream(inputWriteSide, FileAccess.Write);
+            ForwardCtrlC(stream);
 
             while (true)
             {
+                if (!Console.KeyAvailable) continue;
+
                 // send input character-by-character to the pipe
                 char key = Console.ReadKey(intercept: true).KeyChar;
-                writer.Write(key);
+                stream.WriteByte((byte)key);
+                stream.Flush();
             }
         }
 
         /// <summary>
         /// Don't let ctrl-c kill the terminal, it should be sent to the process in the terminal.
         /// </summary>
-        private static void ForwardCtrlC(StreamWriter writer)
+        private static void ForwardCtrlC(FileStream stream)
         {
             Console.CancelKeyPress += (sender, e) =>
             {
                 e.Cancel = true;
-                writer.Write(CtrlC_Command);
+                stream.Write(Encoding.UTF8.GetBytes(CtrlC_Command));
+                stream.Flush();
             };
         }
 
@@ -106,15 +114,6 @@ namespace MiniTerm
             using var pseudoConsoleOutput = new FileStream(outputReadSide, FileAccess.Read);
             pseudoConsoleOutput.CopyTo(terminalOutput);
         }
-
-        /// <summary>
-        /// Get an AutoResetEvent that signals when the process exits
-        /// </summary>
-        private static AutoResetEvent WaitForExit(Process process) =>
-            new AutoResetEvent(false)
-            {
-                SafeWaitHandle = new SafeWaitHandle(process.ProcessInfo.hProcess, ownsHandle: false)
-            };
 
         /// <summary>
         /// Set a callback for when the terminal is closed (e.g. via the "X" window decoration button).

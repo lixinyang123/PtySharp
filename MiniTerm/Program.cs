@@ -14,7 +14,7 @@ namespace MiniTerm
     /// <remarks>
     /// Basic design is:
     /// Terminal UI starts the PseudoConsole, and controls it using a pair of PseudoConsolePipes
-    /// Terminal UI will run the Process (powershell.exe) and associate it with the PseudoConsole.
+    /// Terminal UI will run the Process (cmd.exe) and associate it with the PseudoConsole.
     /// </remarks>
     static class Program
     {
@@ -23,7 +23,7 @@ namespace MiniTerm
             try
             {
                 var terminal = new Terminal();
-                terminal.Run("powershell.exe");
+                terminal.Run("cmd.exe");
             }
             catch (InvalidOperationException e)
             {
