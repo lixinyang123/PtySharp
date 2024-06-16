@@ -5,11 +5,10 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-	<BuiltInComInteropSupport>true</BuiltInComInteropSupport>
-	<!--Public AOT-->
-	<PublishAot>true</PublishAot>
-	<InvariantGlobalization>true</InvariantGlobalization>
-	<StripSymbols>true</StripSymbols>
+    <!--Public AOT-->
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <StripSymbols>true</StripSymbols>
   </PropertyGroup>
 
   <ItemGroup>

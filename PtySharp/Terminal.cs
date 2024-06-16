@@ -1,8 +1,6 @@
 using Microsoft.Win32.SafeHandles;
 using System.Text;
 using Windows.Win32;
-using Windows.Win32.Foundation;
-using Windows.Win32.System.Console;
 
 namespace PtySharp
 {
@@ -10,10 +8,8 @@ namespace PtySharp
     /// The UI of the terminal. It's just a normal console window, but we're managing the input/output.
     /// In a "real" project this could be some other UI.
     /// </summary>
-    internal sealed class Terminal
+    internal static class Terminal
     {
-        private const string ExitCommand = "exit\r";
-
         private const string CtrlC_Command = "\x3";
 
         internal enum CtrlTypes : uint
@@ -23,30 +19,6 @@ namespace PtySharp
             CTRL_CLOSE_EVENT,
             CTRL_LOGOFF_EVENT = 5,
             CTRL_SHUTDOWN_EVENT
-        }
-
-        public Terminal()
-        {
-            EnableVirtualTerminalSequenceProcessing();
-        }
-
-        /// <summary>
-        /// Newer versions of the windows console support interpreting virtual terminal sequences, we just have to opt-in
-        /// </summary>
-        private static void EnableVirtualTerminalSequenceProcessing()
-        {
-            HANDLE hStdOut = PInvoke.GetStdHandle(STD_HANDLE.STD_OUTPUT_HANDLE);
-            SafeFileHandle safeFileHandle = new(hStdOut, true);
-
-            if (!PInvoke.GetConsoleMode(safeFileHandle, out CONSOLE_MODE outConsoleMode))
-            {
-                throw new InvalidOperationException("Could not get console mode");
-            }
-
-            if (!PInvoke.SetConsoleMode(safeFileHandle, outConsoleMode))
-            {
-                throw new InvalidOperationException("Could not enable virtual terminal processing");
-            }
         }
 
         /// <summary>
