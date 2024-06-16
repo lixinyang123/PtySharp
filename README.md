@@ -1,6 +1,6 @@
 # PtySharp
 
-Terminal using the Windows PTY API with CsWin32. Written in C#, Support Native AOT.
+Terminal using the Windows PTY API with CsWin32, Support Native AOT.
 
 ## Resources
 
