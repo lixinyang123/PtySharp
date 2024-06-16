@@ -2,7 +2,7 @@ using Microsoft.Win32.SafeHandles;
 using Windows.Win32;
 using Windows.Win32.Security;
 
-namespace MiniTerm
+namespace PtySharp
 {
     /// <summary>
     /// A pipe used to talk to the pseudoconsole, as described in:

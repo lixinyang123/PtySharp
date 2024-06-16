@@ -4,7 +4,7 @@ using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.System.Console;
 
-namespace MiniTerm
+namespace PtySharp
 {
     /// <summary>
     /// The UI of the terminal. It's just a normal console window, but we're managing the input/output.

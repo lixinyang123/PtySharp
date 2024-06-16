@@ -1,4 +1,4 @@
-using MiniTerm;
+using PtySharp;
 
 /// <summary>
 /// C# version of:

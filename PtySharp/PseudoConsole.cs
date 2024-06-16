@@ -2,7 +2,7 @@ using Microsoft.Win32.SafeHandles;
 using Windows.Win32;
 using Windows.Win32.System.Console;
 
-namespace MiniTerm
+namespace PtySharp
 {
     /// <summary>
     /// Utility functions around the new Pseudo Console APIs
