@@ -11,6 +11,7 @@ namespace PtySharp
     /// <remarks>
     /// We'll have two instances of this class, one for input and one for output.
     /// </remarks>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Interoperability", "CA1416")]
     internal sealed class PseudoConsolePipe : IDisposable
     {
         public readonly SafeFileHandle ReadSide;
@@ -23,12 +24,10 @@ namespace PtySharp
                 throw new PlatformNotSupportedException("OperatingSystem is not support");
             }
 
-#pragma warning disable CA1416
             if (!PInvoke.CreatePipe(out ReadSide, out WriteSide, new SECURITY_ATTRIBUTES(), 0))
             {
                 throw new InvalidOperationException("failed to create pipe");
             }
-#pragma warning restore CA1416
         }
 
         void Dispose(bool disposing)

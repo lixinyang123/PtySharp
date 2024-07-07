@@ -1,5 +1,6 @@
 using Microsoft.Win32.SafeHandles;
 using Windows.Win32;
+using Windows.Win32.Foundation;
 using Windows.Win32.System.Console;
 
 namespace PtySharp
@@ -9,31 +10,36 @@ namespace PtySharp
     /// </summary>
     internal sealed class PseudoConsole : IDisposable
     {
-        public ClosePseudoConsoleSafeHandle Handle { get; }
+        public HPCON Handle { get; }
 
-        private PseudoConsole(ClosePseudoConsoleSafeHandle handle)
+        private PseudoConsole(HPCON handle)
         {
             Handle = handle;
         }
 
-        internal static PseudoConsole Create(SafeFileHandle inputReadSide, SafeFileHandle outputWriteSide, int width, int height)
+        internal unsafe static PseudoConsole Create(SafeFileHandle inputReadSide, SafeFileHandle outputWriteSide, int width, int height)
         {
+            var hpcon = new HPCON();
+
             var createResult = PInvoke.CreatePseudoConsole(
-                new COORD { X = (short)width, Y = (short)height },
-                inputReadSide, outputWriteSide,
-                0, out ClosePseudoConsoleSafeHandle hPC);
+                size: new COORD { X = (short)width, Y = (short)height },
+                hInput: new HANDLE(inputReadSide.DangerousGetHandle()),
+                hOutput: new HANDLE(outputWriteSide.DangerousGetHandle()),
+                dwFlags: 0,
+                phPC: &hpcon
+            );
 
             if (createResult != 0)
             {
                 throw new InvalidOperationException("Could not create pseudo console. Error Code " + createResult);
             }
 
-            return new PseudoConsole(hPC);
+            return new PseudoConsole(hpcon);
         }
 
         public void Dispose()
         {
-            Handle.Close();
+            PInvoke.ClosePseudoConsole(Handle);
         }
     }
 }

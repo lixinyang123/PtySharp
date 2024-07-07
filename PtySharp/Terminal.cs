@@ -1,4 +1,5 @@
 using Microsoft.Win32.SafeHandles;
+using PtySharp.Processes;
 using System.Text;
 using Windows.Win32;
 
@@ -31,7 +32,7 @@ namespace PtySharp
             using var inputPipe = new PseudoConsolePipe();
             using var outputPipe = new PseudoConsolePipe();
             using var pseudoConsole = PseudoConsole.Create(inputPipe.ReadSide, outputPipe.WriteSide, (short)Console.WindowWidth, (short)Console.WindowHeight);
-            using var process = System.Diagnostics.Process.Start(command) ?? throw new Exception();
+            using var process = ProcessFactory.Start(command, pseudoConsole.Handle);
 
             // copy all pseudoconsole output to stdout
             Task.Run(() => CopyPipeToOutput(outputPipe.ReadSide));
@@ -40,7 +41,7 @@ namespace PtySharp
             // free resources in case the console is ungracefully closed (e.g. by the 'x' in the window titlebar)
             OnClose(() => DisposeResources(process, pseudoConsole, outputPipe, inputPipe));
 
-            process.WaitForExit();
+            WaitForExit(process).WaitOne(Timeout.Infinite);
         }
 
         /// <summary>
@@ -86,6 +87,15 @@ namespace PtySharp
             using var pseudoConsoleOutput = new FileStream(outputReadSide, FileAccess.Read);
             pseudoConsoleOutput.CopyTo(terminalOutput);
         }
+
+        /// <summary>
+        /// Get an AutoResetEvent that signals when the process exits
+        /// </summary>
+        private static AutoResetEvent WaitForExit(Process process) =>
+            new(false)
+            {
+                SafeWaitHandle = new SafeWaitHandle(process.ProcessInfo.hProcess, ownsHandle: false)
+            };
 
         /// <summary>
         /// Set a callback for when the terminal is closed (e.g. via the "X" window decoration button).

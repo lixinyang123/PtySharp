@@ -1,9 +1,10 @@
 CreatePseudoConsole
-// ResizePseudoConsole
-// ClosePseudoConsole
+ClosePseudoConsole
 CreatePipe
-
-GetStdHandle
-SetConsoleMode
-GetConsoleMode
 SetConsoleCtrlHandler
+STARTUPINFOEXW
+InitializeProcThreadAttributeList
+DeleteProcThreadAttributeList
+UpdateProcThreadAttribute
+CreateProcess
+CloseHandle
