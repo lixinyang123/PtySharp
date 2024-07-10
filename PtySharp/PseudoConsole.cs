@@ -1,7 +1,5 @@
 using Microsoft.Win32.SafeHandles;
-using Windows.Win32;
-using Windows.Win32.Foundation;
-using Windows.Win32.System.Console;
+using static PtySharp.Native.PseudoConsoleApi;
 
 namespace PtySharp
 {
@@ -10,23 +8,23 @@ namespace PtySharp
     /// </summary>
     internal sealed class PseudoConsole : IDisposable
     {
-        public HPCON Handle { get; }
+        public static readonly IntPtr PseudoConsoleThreadAttribute = (IntPtr)PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE;
 
-        private PseudoConsole(HPCON handle)
+        public IntPtr Handle { get; }
+
+        private PseudoConsole(IntPtr handle)
         {
             Handle = handle;
         }
 
-        internal unsafe static PseudoConsole Create(SafeFileHandle inputReadSide, SafeFileHandle outputWriteSide, int width, int height)
+        internal static PseudoConsole Create(SafeFileHandle inputReadSide, SafeFileHandle outputWriteSide, int width, int height)
         {
-            var hpcon = new HPCON();
-
-            var createResult = PInvoke.CreatePseudoConsole(
+            var createResult = CreatePseudoConsole(
                 size: new COORD { X = (short)width, Y = (short)height },
-                hInput: new HANDLE(inputReadSide.DangerousGetHandle()),
-                hOutput: new HANDLE(outputWriteSide.DangerousGetHandle()),
+                hInput: inputReadSide,
+                hOutput: outputWriteSide,
                 dwFlags: 0,
-                phPC: &hpcon
+                phPC: out var phpc
             );
 
             if (createResult != 0)
@@ -34,12 +32,12 @@ namespace PtySharp
                 throw new InvalidOperationException("Could not create pseudo console. Error Code " + createResult);
             }
 
-            return new PseudoConsole(hpcon);
+            return new PseudoConsole(phpc);
         }
 
         public void Dispose()
         {
-            PInvoke.ClosePseudoConsole(Handle);
+            ClosePseudoConsole(Handle);
         }
     }
 }

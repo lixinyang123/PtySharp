@@ -1,17 +1,22 @@
+using System;
 using System.Runtime.InteropServices;
-using Windows.Win32;
-using Windows.Win32.System.Threading;
+using static PtySharp.Native.ProcessApi;
 
 namespace PtySharp.Processes
 {
     /// <summary>
     /// Represents an instance of a process.
     /// </summary>
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Interoperability", "CA1416")]
-    internal sealed class Process(STARTUPINFOEXW startupInfo, PROCESS_INFORMATION processInfo) : IDisposable
+    internal sealed class Process : IDisposable
     {
-        public STARTUPINFOEXW StartupInfo { get; } = startupInfo;
-        public PROCESS_INFORMATION ProcessInfo { get; } = processInfo;
+        public Process(STARTUPINFOEX startupInfo, PROCESS_INFORMATION processInfo)
+        {
+            StartupInfo = startupInfo;
+            ProcessInfo = processInfo;
+        }
+
+        public STARTUPINFOEX StartupInfo { get; }
+        public PROCESS_INFORMATION ProcessInfo { get; }
 
         #region IDisposable Support
 
@@ -31,18 +36,18 @@ namespace PtySharp.Processes
                 // Free the attribute list
                 if (StartupInfo.lpAttributeList != IntPtr.Zero)
                 {
-                    PInvoke.DeleteProcThreadAttributeList(StartupInfo.lpAttributeList);
+                    DeleteProcThreadAttributeList(StartupInfo.lpAttributeList);
                     Marshal.FreeHGlobal(StartupInfo.lpAttributeList);
                 }
 
                 // Close process and thread handles
                 if (ProcessInfo.hProcess != IntPtr.Zero)
                 {
-                    PInvoke.CloseHandle(ProcessInfo.hProcess);
+                    CloseHandle(ProcessInfo.hProcess);
                 }
                 if (ProcessInfo.hThread != IntPtr.Zero)
                 {
-                    PInvoke.CloseHandle(ProcessInfo.hThread);
+                    CloseHandle(ProcessInfo.hThread);
                 }
 
                 disposedValue = true;

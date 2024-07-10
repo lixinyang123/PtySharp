@@ -1,7 +1,11 @@
 using Microsoft.Win32.SafeHandles;
 using PtySharp.Processes;
+using System;
+using System.IO;
 using System.Text;
-using Windows.Win32;
+using System.Threading;
+using System.Threading.Tasks;
+using static PtySharp.Native.ConsoleApi;
 
 namespace PtySharp
 {
@@ -9,17 +13,32 @@ namespace PtySharp
     /// The UI of the terminal. It's just a normal console window, but we're managing the input/output.
     /// In a "real" project this could be some other UI.
     /// </summary>
-    internal static class Terminal
+    internal sealed class Terminal
     {
+        private const string ExitCommand = "exit\r";
         private const string CtrlC_Command = "\x3";
 
-        internal enum CtrlTypes : uint
+        public Terminal()
         {
-            CTRL_C_EVENT = 0,
-            CTRL_BREAK_EVENT,
-            CTRL_CLOSE_EVENT,
-            CTRL_LOGOFF_EVENT = 5,
-            CTRL_SHUTDOWN_EVENT
+            EnableVirtualTerminalSequenceProcessing();
+        }
+
+        /// <summary>
+        /// Newer versions of the windows console support interpreting virtual terminal sequences, we just have to opt-in
+        /// </summary>
+        private static void EnableVirtualTerminalSequenceProcessing()
+        {
+            var hStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
+            if (!GetConsoleMode(hStdOut, out uint outConsoleMode))
+            {
+                throw new InvalidOperationException("Could not get console mode");
+            }
+
+            outConsoleMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN;
+            if (!SetConsoleMode(hStdOut, outConsoleMode))
+            {
+                throw new InvalidOperationException("Could not enable virtual terminal processing");
+            }
         }
 
         /// <summary>
@@ -27,21 +46,22 @@ namespace PtySharp
         /// https://docs.microsoft.com/en-us/windows/console/creating-a-pseudoconsole-session#creating-the-pseudoconsole
         /// </summary>
         /// <param name="command">the command to run, e.g. cmd.exe</param>
-        public static void Run(string command)
+        public void Run(string command)
         {
-            using var inputPipe = new PseudoConsolePipe();
-            using var outputPipe = new PseudoConsolePipe();
-            using var pseudoConsole = PseudoConsole.Create(inputPipe.ReadSide, outputPipe.WriteSide, (short)Console.WindowWidth, (short)Console.WindowHeight);
-            using var process = ProcessFactory.Start(command, pseudoConsole.Handle);
+            using (var inputPipe = new PseudoConsolePipe())
+            using (var outputPipe = new PseudoConsolePipe())
+            using (var pseudoConsole = PseudoConsole.Create(inputPipe.ReadSide, outputPipe.WriteSide, (short)Console.WindowWidth, (short)Console.WindowHeight))
+            using (var process = ProcessFactory.Start(command, PseudoConsole.PseudoConsoleThreadAttribute, pseudoConsole.Handle))
+            {
+                // copy all pseudoconsole output to stdout
+                Task.Run(() => CopyPipeToOutput(outputPipe.ReadSide));
+                // prompt for stdin input and send the result to the pseudoconsole
+                Task.Run(() => CopyInputToPipe(inputPipe.WriteSide));
+                // free resources in case the console is ungracefully closed (e.g. by the 'x' in the window titlebar)
+                OnClose(() => DisposeResources(process, pseudoConsole, outputPipe, inputPipe));
 
-            // copy all pseudoconsole output to stdout
-            Task.Run(() => CopyPipeToOutput(outputPipe.ReadSide));
-            // prompt for stdin input and send the result to the pseudoconsole
-            Task.Run(() => CopyInputToPipe(inputPipe.WriteSide));
-            // free resources in case the console is ungracefully closed (e.g. by the 'x' in the window titlebar)
-            OnClose(() => DisposeResources(process, pseudoConsole, outputPipe, inputPipe));
-
-            WaitForExit(process).WaitOne(Timeout.Infinite);
+                WaitForExit(process).WaitOne(Timeout.Infinite);
+            }
         }
 
         /// <summary>
@@ -50,30 +70,30 @@ namespace PtySharp
         /// <param name="inputWriteSide">the "write" side of the pseudo console input pipe</param>
         private static void CopyInputToPipe(SafeFileHandle inputWriteSide)
         {
-            using var stream = new FileStream(inputWriteSide, FileAccess.Write);
-            ForwardCtrlC(stream);
-
-            while (true)
+            using (var writer = new StreamWriter(new FileStream(inputWriteSide, FileAccess.Write)))
             {
-                if (!Console.KeyAvailable) continue;
+                ForwardCtrlC(writer);
+                writer.AutoFlush = true;
+                writer.WriteLine(@"cd \");
 
-                // send input character-by-character to the pipe
-                char key = Console.ReadKey(intercept: true).KeyChar;
-                stream.WriteByte((byte)key);
-                stream.Flush();
+                while (true)
+                {
+                    // send input character-by-character to the pipe
+                    char key = Console.ReadKey(intercept: true).KeyChar;
+                    writer.Write(key);
+                }
             }
         }
 
         /// <summary>
         /// Don't let ctrl-c kill the terminal, it should be sent to the process in the terminal.
         /// </summary>
-        private static void ForwardCtrlC(FileStream stream)
+        private static void ForwardCtrlC(StreamWriter writer)
         {
             Console.CancelKeyPress += (sender, e) =>
             {
                 e.Cancel = true;
-                stream.Write(Encoding.UTF8.GetBytes(CtrlC_Command));
-                stream.Flush();
+                writer.Write(CtrlC_Command);
             };
         }
 
@@ -83,16 +103,18 @@ namespace PtySharp
         /// <param name="outputReadSide">the "read" side of the pseudo console output pipe</param>
         private static void CopyPipeToOutput(SafeFileHandle outputReadSide)
         {
-            using var terminalOutput = Console.OpenStandardOutput();
-            using var pseudoConsoleOutput = new FileStream(outputReadSide, FileAccess.Read);
-            pseudoConsoleOutput.CopyTo(terminalOutput);
+            using (var terminalOutput = Console.OpenStandardOutput())
+            using (var pseudoConsoleOutput = new FileStream(outputReadSide, FileAccess.Read))
+            {
+                pseudoConsoleOutput.CopyTo(terminalOutput);
+            }
         }
 
         /// <summary>
         /// Get an AutoResetEvent that signals when the process exits
         /// </summary>
         private static AutoResetEvent WaitForExit(Process process) =>
-            new(false)
+            new AutoResetEvent(false)
             {
                 SafeWaitHandle = new SafeWaitHandle(process.ProcessInfo.hProcess, ownsHandle: false)
             };
@@ -103,9 +125,9 @@ namespace PtySharp
         /// </summary>
         private static void OnClose(Action handler)
         {
-            PInvoke.SetConsoleCtrlHandler(eventType =>
+            SetConsoleCtrlHandler(eventType =>
             {
-                if (eventType == (uint)CtrlTypes.CTRL_CLOSE_EVENT)
+                if(eventType == CtrlTypes.CTRL_CLOSE_EVENT)
                 {
                     handler();
                 }
@@ -113,7 +135,7 @@ namespace PtySharp
             }, true);
         }
 
-        private static void DisposeResources(params IDisposable[] disposables)
+        private void DisposeResources(params IDisposable[] disposables)
         {
             foreach (var disposable in disposables)
             {

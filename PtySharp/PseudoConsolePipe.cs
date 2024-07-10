@@ -1,6 +1,5 @@
 using Microsoft.Win32.SafeHandles;
-using Windows.Win32;
-using Windows.Win32.Security;
+using PtySharp.Native;
 
 namespace PtySharp
 {
@@ -11,7 +10,6 @@ namespace PtySharp
     /// <remarks>
     /// We'll have two instances of this class, one for input and one for output.
     /// </remarks>
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Interoperability", "CA1416")]
     internal sealed class PseudoConsolePipe : IDisposable
     {
         public readonly SafeFileHandle ReadSide;
@@ -19,16 +17,13 @@ namespace PtySharp
 
         public PseudoConsolePipe()
         {
-            if (!OperatingSystem.IsWindows())
-            {
-                throw new PlatformNotSupportedException("OperatingSystem is not support");
-            }
-
-            if (!PInvoke.CreatePipe(out ReadSide, out WriteSide, new SECURITY_ATTRIBUTES(), 0))
+            if (!PseudoConsoleApi.CreatePipe(out ReadSide, out WriteSide, IntPtr.Zero, 0))
             {
                 throw new InvalidOperationException("failed to create pipe");
             }
         }
+
+        #region IDisposable
 
         void Dispose(bool disposing)
         {
@@ -44,5 +39,7 @@ namespace PtySharp
             Dispose(true);
             GC.SuppressFinalize(this);
         }
+
+        #endregion
     }
 }
